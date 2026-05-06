@@ -32,11 +32,49 @@ function dispatch(): void
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 
-    // Routing table — handlers are added in later tasks.
-    // For now: GET / returns a placeholder; everything else 404s.
     if ($method === 'GET' && $path === '/') {
-        echo 'shortener boot ok';
-        return;
+        route_enter_form(); return;
+    }
+    if ($method === 'POST' && $path === '/go') {
+        route_go(); return;
+    }
+    if ($method === 'GET' && preg_match('#^/([0-9]{6}|[0-9]{3}-[0-9]{3})$#', $path, $m)) {
+        route_redirect($m[1]); return;
     }
     not_found();
+}
+
+function route_enter_form(string $error = ''): void
+{
+    render('enter', ['title' => 'southside.cc', 'error' => $error]);
+}
+
+function route_go(): void
+{
+    $code = normalize_code((string) ($_POST['code'] ?? ''));
+    if ($code === null) {
+        route_enter_form('Enter a 6-digit code.'); return;
+    }
+    $stmt = get_db()->prepare('SELECT url FROM links WHERE code = ?');
+    $stmt->execute([$code]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        route_enter_form('That code isn\'t in the directory.'); return;
+    }
+    header('Location: ' . $row['url'], true, 302);
+}
+
+function route_redirect(string $rawCode): void
+{
+    $code = normalize_code($rawCode);
+    if ($code === null) {
+        not_found();
+    }
+    $stmt = get_db()->prepare('SELECT url FROM links WHERE code = ?');
+    $stmt->execute([$code]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        not_found();
+    }
+    header('Location: ' . $row['url'], true, 302);
 }
