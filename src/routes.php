@@ -63,7 +63,8 @@ function dispatch(): void
 
 function route_enter_form(string $error = ''): void
 {
-    render('enter', ['title' => 'southside.cc', 'error' => $error]);
+    $name = env('SITE_NAME', 'dashr');
+    render('enter', ['title' => $name, 'site_name' => $name, 'error' => $error]);
 }
 
 function route_go(): void

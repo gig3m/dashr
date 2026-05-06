@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= htmlspecialchars($title ?? 'southside.cc') ?></title>
+  <title><?= htmlspecialchars($title ?? env('SITE_NAME', 'dashr')) ?></title>
   <style>
     :root { color-scheme: light dark; }
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 32rem;

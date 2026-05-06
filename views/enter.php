@@ -1,4 +1,4 @@
-<h1>southside.cc</h1>
+<h1><?= htmlspecialchars($site_name) ?></h1>
 <p>Enter the 6-digit code:</p>
 <form method="post" action="/go" autocomplete="off">
   <div class="row">
