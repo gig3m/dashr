@@ -41,6 +41,12 @@ function dispatch(): void
     if ($method === 'GET' && preg_match('#^/([0-9]{6}|[0-9]{3}-[0-9]{3})$#', $path, $m)) {
         route_redirect($m[1]); return;
     }
+
+    // Admin auth (added in Task 9)
+    if ($method === 'GET'  && $path === '/admin')        { route_admin_root();   return; }
+    if ($method === 'POST' && $path === '/admin/login')  { route_admin_login();  return; }
+    if ($method === 'POST' && $path === '/admin/logout') { route_admin_logout(); return; }
+
     not_found();
 }
 
@@ -77,4 +83,40 @@ function route_redirect(string $rawCode): void
         not_found();
     }
     header('Location: ' . $row['url'], true, 302);
+}
+
+function route_admin_root(): void
+{
+    if (is_admin()) {
+        header('Location: /admin/links', true, 302);
+        return;
+    }
+    render('login', ['title' => 'admin login', 'error' => '']);
+}
+
+function route_admin_login(): void
+{
+    $hash = (string) env('ADMIN_PASSWORD_HASH', '');
+    $pw = (string) ($_POST['password'] ?? '');
+    if ($hash === '' || !password_verify($pw, $hash)) {
+        // Tiny delay to discourage rapid guessing.
+        usleep(250_000);
+        http_response_code(401);
+        render('login', ['title' => 'admin login', 'error' => 'Incorrect password.']);
+        return;
+    }
+    session_regenerate_id(true);
+    $_SESSION['admin'] = true;
+    header('Location: /admin/links', true, 302);
+}
+
+function route_admin_logout(): void
+{
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
+    session_destroy();
+    header('Location: /', true, 302);
 }
