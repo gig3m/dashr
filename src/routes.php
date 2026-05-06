@@ -123,6 +123,11 @@ function route_admin_login(): void
 
 function route_admin_logout(): void
 {
+    if (!verify_csrf($_SESSION['csrf'] ?? '', (string) ($_POST['csrf'] ?? ''))) {
+        http_response_code(400);
+        header('Location: /admin/links', true, 302);
+        return;
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $p = session_get_cookie_params();

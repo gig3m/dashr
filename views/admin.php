@@ -1,5 +1,5 @@
 <h1>admin</h1>
-<p><a href="/">public site</a> · <form style="display:inline" method="post" action="/admin/logout"><button>log out</button></form></p>
+<p><a href="/">public site</a> · <form style="display:inline" method="post" action="/admin/logout"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>"><button>log out</button></form></p>
 
 <h2>create link</h2>
 <form method="post" action="/admin/links">
