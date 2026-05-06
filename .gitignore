@@ -1,4 +1,5 @@
 .env
-data/links.db
-data/test.db
+data/*.db
+data/*.db-shm
+data/*.db-wal
 .DS_Store
