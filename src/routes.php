@@ -47,6 +47,14 @@ function dispatch(): void
     if ($method === 'POST' && $path === '/admin/login')  { route_admin_login();  return; }
     if ($method === 'POST' && $path === '/admin/logout') { route_admin_logout(); return; }
 
+    // Admin link management (all require auth, enforced inside handlers)
+    if ($method === 'GET'  && $path === '/admin/links')  { route_admin_links_list();   return; }
+    if ($method === 'POST' && $path === '/admin/links')  { route_admin_links_create(); return; }
+    if ($method === 'POST' && preg_match('#^/admin/links/([0-9]{6})/delete$#', $path, $m)) {
+        route_admin_links_delete($m[1]);
+        return;
+    }
+
     not_found();
 }
 
@@ -119,4 +127,73 @@ function route_admin_logout(): void
     }
     session_destroy();
     header('Location: /', true, 302);
+}
+
+function route_admin_links_list(string $error = '', string $created = ''): void
+{
+    require_admin();
+    $rows = get_db()->query('SELECT code, url, created_at FROM links ORDER BY created_at DESC')->fetchAll();
+    render('admin', [
+        'title'   => 'admin',
+        'rows'    => $rows,
+        'csrf'    => csrf_token(),
+        'error'   => $error,
+        'created' => $created,
+    ]);
+}
+
+function route_admin_links_create(): void
+{
+    require_admin();
+    if (!verify_csrf($_SESSION['csrf'] ?? '', (string) ($_POST['csrf'] ?? ''))) {
+        http_response_code(400);
+        route_admin_links_list('Invalid form submission.', '');
+        return;
+    }
+    $url = trim((string) ($_POST['url'] ?? ''));
+    $rawCode = trim((string) ($_POST['code'] ?? ''));
+
+    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+        route_admin_links_list('URL must be a valid http(s) URL.', '');
+        return;
+    }
+
+    $db = get_db();
+    if ($rawCode !== '') {
+        $code = normalize_code($rawCode);
+        if ($code === null) {
+            route_admin_links_list('Custom code must be 6 digits (XXX-XXX).', '');
+            return;
+        }
+        $stmt = $db->prepare('SELECT 1 FROM links WHERE code = ?');
+        $stmt->execute([$code]);
+        if ($stmt->fetchColumn()) {
+            route_admin_links_list("Code " . format_code($code) . " is already taken.", '');
+            return;
+        }
+    } else {
+        $exists = function (string $c) use ($db): bool {
+            $s = $db->prepare('SELECT 1 FROM links WHERE code = ?');
+            $s->execute([$c]);
+            return (bool) $s->fetchColumn();
+        };
+        $code = generate_code($exists);
+    }
+
+    $ins = $db->prepare('INSERT INTO links (code, url, created_at) VALUES (?, ?, ?)');
+    $ins->execute([$code, $url, time()]);
+    route_admin_links_list('', $code);
+}
+
+function route_admin_links_delete(string $code): void
+{
+    require_admin();
+    if (!verify_csrf($_SESSION['csrf'] ?? '', (string) ($_POST['csrf'] ?? ''))) {
+        http_response_code(400);
+        route_admin_links_list('Invalid form submission.', '');
+        return;
+    }
+    $stmt = get_db()->prepare('DELETE FROM links WHERE code = ?');
+    $stmt->execute([$code]);
+    header('Location: /admin/links', true, 302);
 }
