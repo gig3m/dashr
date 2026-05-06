@@ -55,6 +55,9 @@ function dispatch(): void
         return;
     }
 
+    // API
+    if ($method === 'POST' && $path === '/api/links') { route_api_create(); return; }
+
     not_found();
 }
 
@@ -196,4 +199,61 @@ function route_admin_links_delete(string $code): void
     $stmt = get_db()->prepare('DELETE FROM links WHERE code = ?');
     $stmt->execute([$code]);
     header('Location: /admin/links', true, 302);
+}
+
+function route_api_create(): void
+{
+    require_bearer();
+    header('Content-Type: application/json');
+
+    $raw = (string) file_get_contents('php://input');
+    $body = json_decode($raw, true);
+    if (!is_array($body)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'invalid JSON']);
+        return;
+    }
+
+    $url = trim((string) ($body['url'] ?? ''));
+    $rawCode = trim((string) ($body['code'] ?? ''));
+
+    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'url must be a valid http(s) URL']);
+        return;
+    }
+
+    $db = get_db();
+
+    if ($rawCode !== '') {
+        $code = normalize_code($rawCode);
+        if ($code === null) {
+            http_response_code(400);
+            echo json_encode(['error' => 'code must be 6 digits']);
+            return;
+        }
+        $s = $db->prepare('SELECT 1 FROM links WHERE code = ?');
+        $s->execute([$code]);
+        if ($s->fetchColumn()) {
+            http_response_code(409);
+            echo json_encode(['error' => 'code already taken']);
+            return;
+        }
+    } else {
+        $exists = function (string $c) use ($db): bool {
+            $s = $db->prepare('SELECT 1 FROM links WHERE code = ?');
+            $s->execute([$c]);
+            return (bool) $s->fetchColumn();
+        };
+        $code = generate_code($exists);
+    }
+
+    $ins = $db->prepare('INSERT INTO links (code, url, created_at) VALUES (?, ?, ?)');
+    $ins->execute([$code, $url, time()]);
+
+    $base = rtrim((string) env('BASE_URL', ''), '/');
+    echo json_encode([
+        'code'      => format_code($code),
+        'short_url' => $base . '/' . format_code($code),
+    ]);
 }
