@@ -1,0 +1,4 @@
+.env
+data/links.db
+data/test.db
+.DS_Store
