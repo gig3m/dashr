@@ -13,6 +13,8 @@ A small, self-hosted URL shortener built around 6-digit numeric codes — the ki
                               https://wherever-you-pointed-it
 ```
 
+![dashr's public code-entry page](docs/screenshot.png)
+
 Built for low volume (the namespace is one million codes; you'll use a tiny fraction). No framework, no Composer, no build step. PHP + SQLite, ~600 lines total.
 
 ## Features
